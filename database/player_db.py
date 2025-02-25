@@ -38,6 +38,11 @@ def insertGamePlayer(gamePlayer: dict) -> dict:
     with getSession() as session:
         #Create player_game_id
         game_player_id = gamePlayer['game_id'] + gamePlayer['player_id']
+        #check for existing gamePlayer
+        existingGamePlayer  = session.query(api.Game_Player).filter(api.Game_Player.game_player_id==game_player_id).first
+        if existingGamePlayer:
+            return {"Error":"Game Player {} already exists in database".format(game_player_id)}
+        
         game_player = api.Game_Player(game_player_id=game_player_id, **gamePlayer['game_player'])
         game_player_combat = api.Game_Player_Combat(game_player_id=game_player_id, **gamePlayer['game_player_combat'])
         game_player_economy = api.Game_Player_Economy(game_player_id=game_player_id,**gamePlayer['game_player_economy'])
