@@ -30,3 +30,11 @@ def getLeagues() -> List[str]:
         leagueList = [league[0] for league in leagues] if leagues else []
         #return
         return leagueList if leagueList else {"Error": "Unable to get Leagues from database"}
+    
+def getPatches() -> List[str]:
+    with getSession() as session:
+        #Query for all unique patches
+        patches = session.query(api.Game.patch).distinct().all()
+        #extract patches into a list
+        patchList = [patch[0] for patch in patches] if patches else []
+        return patchList if patchList else {"Error":"Unable to get Patches from database"}

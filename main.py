@@ -1,7 +1,9 @@
+import datetime
 from scraper.asset_scraper import *
 from scraper.asset_scraper import champion_scraper
 from scraper.match_scraper import match_scraper
-from database import db_utils,asset_db,team_db,game_db
+from scraper.schedule_scraper import schedule_scraper
+from database import db_utils,asset_db,team_db,game_db,lolesports_db
 from stat_calc import betting_stats,champion_stats
 from scraper import scraper_controller
 from flask_server import app
@@ -32,4 +34,14 @@ if __name__ == "__main__":
    # for syn in globe[:30]:
    #    print(syn)
    # print('Gen.G Meta Read')
-   champion_stats.create_team_meta_page(teamId='50f58982d91a36557ec8aec52ab014f')
+   # champion_stats.create_team_meta_page(teamId='50f58982d91a36557ec8aec52ab014f')
+   # topLeagues = ['LCK','LTA N','LTA S','LPL', 'LCP']
+   # patches = []
+   # champion_stats.create_global_meta_page(league=topLeagues)
+   #lolesports_db.get_unique_leagues()
+   games =schedule_scraper.get_upcomming_matches(end_date=(datetime.datetime.now()+datetime.timedelta(days=1)))
+   for game in games:
+      for game_team in game['match']['teams']:
+         print(game_team['name'])
+         db_team = team_db.getTeamBySimilarName(game_team['name'])
+         print(db_team)

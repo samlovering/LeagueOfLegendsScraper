@@ -255,7 +255,7 @@ def createGame(gamedf: pd.DataFrame) -> dict:
     'split': get_value(gamedf, 'split'),
     'playoffs': bool(get_value(gamedf, 'playoffs')),
     'game_in_series': int(get_value(gamedf, 'game')),
-    'patch': str(get_value(gamedf, 'patch')),
+    'patch': str(get_value(gamedf, 'patch', transform_func=lambda x: str(x).replace("25", "15") if "25" in str(x) else str(x))),
     }
     return(game)
 '''

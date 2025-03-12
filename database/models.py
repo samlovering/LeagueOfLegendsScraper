@@ -56,6 +56,17 @@ class Team_Player(Base):
     def __repr__(self):
         return f"<Team_Player {self.team_id} - {self.player_id}>"
 
+'''
+
+LOLESPORTS INFORMATION
+
+'''
+
+class League(Base):
+    __tablename__ = "League"
+    league_id = sqlalchemy.Column(sqlalchemy.String(255),primary_key=True)
+    oracle_name = sqlalchemy.Column(sqlalchemy.String(255))
+    lolesports_name = sqlalchemy.Column(sqlalchemy.String(255))
 
 '''
 

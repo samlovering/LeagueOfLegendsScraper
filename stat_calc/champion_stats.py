@@ -9,7 +9,7 @@ TODO:
 
 '''
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from database import draft_db
 
 '''
@@ -17,8 +17,12 @@ Side selection Win Rate
 This Function will query for a teams, region or global side win rate.
 '''
 
-def getSideWinRate(league: Optional[str]=None, teamId: Optional[str]=None) -> dict:
-    return draft_db.getSideWinRate(league=league,teamId=teamId)
+def getSideWinRate(
+    league: Optional[Union[str,List[str]]]=None, 
+    teamId: Optional[Union[str,List[str]]]=None,
+    patch: Optional[Union[str,List[str]]]=None
+    ) -> dict:
+    return draft_db.getSideWinRate(league=league,teamId=teamId,patch=patch)
 
 '''
 General Pick/Ban Information
@@ -37,19 +41,23 @@ def getTopBans(league: Optional[str]=None, teamId: Optional[str]=None, side: Opt
 Champion Presence + Priority
 '''
 def getTopPresence(
-    league: Optional[str]=None, 
-    teamId: Optional[str]=None, 
-    patch: Optional[str]=None, 
+    league: Optional[Union[str,List[str]]]=None, 
+    teamId: Optional[Union[str,List[str]]]=None, 
+    patch: Optional[Union[str,List[str]]]=None, 
     numChamps: int = 10
     ) -> List[dict]:
     return draft_db.getPresence(league=league,teamId=teamId,patch=patch)[:numChamps]
 
 
-def getTopPrioScore(league: Optional[str]=None, teamId: Optional[str]=None, patch: Optional[str]=None, numChamps: int = 10) -> List[dict]:
+def getTopPrioScore(
+    league: Optional[Union[str,List[str]]]=None, 
+    teamId: Optional[Union[str,List[str]]]=None, 
+    patch: Optional[Union[str,List[str]]]=None, 
+    numChamps: int = 10) -> List[dict]:
     return draft_db.getPrioScore(league=league,teamId=teamId,patch=patch)[:numChamps]
 
 '''
-Team Synergies/
+Team Synergies
 
 '''
 def getSynergies(league: Optional[str]=None,teamId: Optional[str]=None,patch: Optional[str]=None, minGames: Optional[int]=0) -> List[dict]:
@@ -71,7 +79,7 @@ Team Meta Page
 
 def create_team_meta_page(teamId: str) -> dict:
     sideData = getSideWinRate(teamId=teamId)
-    print('\n Side Win Rate:')
+    print('\nSide Win Rate:')
     for side in sideData:
         print(side)
     blueGames = sideData[0]['total_games']
@@ -107,10 +115,21 @@ def create_team_meta_page(teamId: str) -> dict:
     pb_percent = getTopPresence(teamId=teamId)
     for pb in pb_percent[:25]:
         print(f"Champion: {pb['champion_name']:<20} Presence: {(int(pb['count'])/totalGames)*100:>6.2f}%")
-    print('\nPrio Score')
+        
+    print('\nPrio Score ({} Games)'.format(totalGames))
     ps_list = getTopPrioScore(teamId=teamId)
     for ps in ps_list:
-        print(ps)
+       print(f"Champion: {ps['champion_name']:<20} Prio Score: {(ps['score']/(totalGames*100))*100:>6.2f}")
+       
+    print('\nCommon Synergies')
+    synergies = getSynergies(teamId=teamId, minGames=2)
+    for syn in synergies:
+        print(syn)
+        
+    print('\nTop Picks')
+    topPicks = getTopPicks(teamId=teamId)
+    for pick in topPicks[:20]:
+        print(pick)
 
     
 
@@ -120,5 +139,38 @@ Global Meta Page
 -> Highest Presence Champs
 -> Draft Stats
     -> Common Duos + WR
+
+'''
+
+def create_global_meta_page(league: Optional[Union[str,List[str]]]=None, patch: Optional[Union[str,List[str]]]=None):
+    sideData = getSideWinRate(league=league,patch=patch)
+    totalGames = sideData[0]['total_games']
+    print('\nSide Win Rate:')
+    for side in sideData:
+        print(side)
+    
+    #Draft Stats
+    print('\nPresence %')
+    pb_percent = getTopPresence(league=league,patch=patch)
+    for pb in pb_percent[:25]:
+        print(f"Champion: {pb['champion_name']:<20} Presence: {(int(pb['count'])/totalGames)*100:>6.2f}%")
+        
+    print('\nPrio Score ({} Games)'.format(totalGames))
+    ps_list = getTopPrioScore(league=league,patch=patch)
+    for ps in ps_list[:25]:
+       print(f"Champion: {ps['champion_name']:<20} Prio Score: {(ps['score']/(totalGames*100))*100:>6.2f}")
+       
+    # print('\nCommon Synergies')
+    # synergies = getSynergies(minGames=20)
+    # for syn in synergies[:25]:
+    #     print(syn)
+        
+    # print('\nTop Picks')
+    # topPicks = getTopPicks()
+    # for pick in topPicks[:25]:
+    #     print(pick)
+        
+'''
+This creates a TOP region only [LTA, LCK, LPL, LEC, LCP] meta view.
 
 '''

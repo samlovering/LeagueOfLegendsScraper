@@ -9,6 +9,10 @@ app = Flask(__name__)
 def get_leagues():
     return jsonify(game_db.getLeagues())
 
+@app.route('/api/getPatches', methods=['GET'])
+def get_patches():
+    return jsonify(game_db.getPatches())
+
 @app.route('/api/getBettingStatsForLeague', methods=['GET','POST'])
 def getBettingStatsForLeague():
     data = request.json

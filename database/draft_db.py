@@ -1,7 +1,7 @@
 from itertools import combinations
-from typing import List, Optional
+from typing import List, Optional,Union
 
-from sqlalchemy import Integer, case, func, union_all
+from sqlalchemy import Integer, case, func, or_, union_all
 from database.db_utils import getSession
 import database.models as api
 
@@ -10,19 +10,34 @@ Side Win Rate
 
 While not specifically related to draft, valuable piece of information
 '''
-def getSideWinRate(league: Optional[str]=None,teamId: Optional[str]=None) -> List[dict]:
+def getSideWinRate(
+    league: Optional[Union[str,List[str]]]=None,
+    teamId: Optional[Union[str,List[str]]]=None,
+    patch: Optional[Union[str,List[str]]]=None,
+) -> List[dict]:
     with getSession() as session:
         #Create a base query
         side_query = session.query(api.Team_Game)
-        #Apply teamId filter if it exists
+        
+        #Apply filters based on input criteria
         if teamId:
-            side_query = side_query.filter(api.Team_Game.team_id == teamId)
+            if isinstance(teamId, List):
+                side_query = side_query.filter(api.Team_Game.team_id.in_(teamId))
+            else:
+                side_query = side_query.filter(api.Team_Game.team_id == teamId)
         if league:
-            side_query = (
-                side_query
-                .join(api.Team,api.Team_Game.team_id == api.Team.team_id)
-                .filter(api.Team.league == league)
-            )
+            side_query = side_query.join(api.Team,api.Team_Game.team_id == api.Team.team_id)
+            if isinstance(league, List):
+                side_query = side_query.filter(api.Team.league.in_(league))
+            else:
+                side_query = side_query.filter(api.Team.league == league)
+        if patch:
+            side_query = side_query.join(api.Game,api.Team_Game.game_id == api.Game.game_id)
+            if isinstance(patch, List):
+                side_query = side_query.filter(api.Game.patch.in_(patch))
+            else:
+                side_query = side_query.filter(api.Game.patch == patch)
+        
         #Query for side win rate
         results = (side_query.with_entities(
             api.Team_Game.side,
@@ -248,9 +263,9 @@ Picks - 100pts/{pick position}
 '''
 
 def getPresence(
-    league: Optional[str]=None, 
-    teamId: Optional[str]=None, 
-    patch: Optional[str]=None,
+    league: Optional[Union[str,List[str]]]=None, 
+    teamId: Optional[Union[str,List[str]]]=None, 
+    patch: Optional[Union[str,List[str]]]=None,
 )->List[dict]:
     with getSession() as session:
     #Create a basic query for the Team_Draft Table
@@ -260,13 +275,26 @@ def getPresence(
             .join(api.Team, api.Team.team_id == api.Team_Draft.team_id))
         
         if league:
-            draft_query = draft_query.filter(api.Team.league == league)
+            if isinstance(league, List):
+                draft_query = draft_query.filter(api.Team.league.in_(league))
+            else:
+                draft_query = draft_query.filter(api.Team.league == league)
         if patch:
-            draft_query = draft_query.filter(api.Game.patch == patch)
+            if isinstance(patch, List):
+                draft_query = draft_query.filter(api.Game.patch.in_(patch))
+            else:
+                draft_query = draft_query.filter(api.Game.patch == patch)
         if teamId:
-            draft_query = draft_query.filter(
-                (api.Game.team1_id == teamId) | (api.Game.team2_id == teamId)
-            )
+            if isinstance(teamId, List):
+                conditions = []
+                for team in teamId:
+                    conditions.append((api.Game.team1_id == team) | (api.Game.team2_id == team))
+                
+                draft_query = draft_query.filter(or_(*conditions))
+            else:
+                draft_query = draft_query.filter(
+                    (api.Game.team1_id == teamId) | (api.Game.team2_id == teamId)
+                )
             
         #Combines all Picks under "all_picks"
         presence_columns = union_all(
@@ -295,11 +323,13 @@ def getPresence(
         )
 
         return [{"champion_name": champion_name, "count": pick_count} for champion_name, pick_count in results]
-            
+
+
+#This may need some re-working, maybe only look at bans against and picks?            
 def getPrioScore(
-    league: Optional[str]=None,
-    teamId: Optional[str]=None,
-    patch: Optional[str]=None,
+    league: Optional[Union[str,List[str]]]=None, 
+    teamId: Optional[Union[str,List[str]]]=None, 
+    patch: Optional[Union[str,List[str]]]=None,
 ) -> List[dict]:
     with getSession() as session:
         #Create a basic query for the Team_Draft Table
@@ -309,13 +339,26 @@ def getPrioScore(
             .join(api.Team, api.Team.team_id == api.Team_Draft.team_id))
         
         if league:
-            draft_query = draft_query.filter(api.Team.league == league)
+            if isinstance(league, List):
+                draft_query = draft_query.filter(api.Team.league.in_(league))
+            else:
+                draft_query = draft_query.filter(api.Team.league == league)
         if patch:
-            draft_query = draft_query.filter(api.Game.patch == patch)
+            if isinstance(patch, List):
+                draft_query = draft_query.filter(api.Game.patch.in_(patch))
+            else:
+                draft_query = draft_query.filter(api.Game.patch == patch)
         if teamId:
-            draft_query = draft_query.filter(
-                (api.Game.team1_id == teamId) | (api.Game.team2_id == teamId)
-            )
+            if isinstance(teamId, List):
+                conditions = []
+                for team in teamId:
+                    conditions.append((api.Game.team1_id == team) | (api.Game.team2_id == team))
+                
+                draft_query = draft_query.filter(or_(*conditions))
+            else:
+                draft_query = draft_query.filter(
+                    (api.Game.team1_id == teamId) | (api.Game.team2_id == teamId)
+                )
             
         # Combine all picks and bans into a single column with scores
         prio_scores = union_all(

@@ -2,8 +2,13 @@ from typing import List
 from sqlalchemy import func
 import database.models as api
 from database.db_utils import getSession
-from collections import defaultdict
+from thefuzz import fuzz
 
+
+def getAllTeamNames() -> List[dict]:
+    with getSession() as session:
+        teams = session.query(api.Team.team_name,api.Team.team_id).all()
+        return teams
 
 def createTeam(teamInfo: dict) -> dict:
     with getSession() as session:
@@ -63,6 +68,28 @@ def getTeamsByLeague(league_name: str) -> List:
         else:
             return {"Error": "League not found. League:{}".format(league_name)}
 
+
+'''
+Team Getter with Fuzzy Matching
+
+'''
+def getTeamBySimilarName(team_name: str) -> dict:
+    best_match = None
+    best_score = 0
+    teams = getAllTeamNames()
+    for team in teams:
+        score = fuzz.ratio(team_name, team.team_name)
+        if score > best_score:
+            print('New Best Match: ', team.team_name, score)
+            best_score = score
+            best_match = team
+    if best_match:
+        return {
+            'team_id': best_match.team_id,
+            'team_name': best_match.team_name,
+        }
+    else:
+        return {"Error": "Team not found. Team Name: {}".format(team_name)}
 
 '''
 
