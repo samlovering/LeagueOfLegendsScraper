@@ -1,0 +1,48 @@
+services:
+  db:
+    image: mariadb:11.3
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -prootpass || exit 1"]
+      interval: 3s
+      retries: 5
+      start_period: 30s
+    environment:
+      MYSQL_DATABASE: league_db
+      MYSQL_USER: league_user
+      MYSQL_PASSWORD: league_pass
+      MYSQL_ROOT_PASSWORD: rootpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_USER: league_user
+      DB_PASSWORD: league_pass
+      DB_NAME: league_db
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+    restart: always
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    restart: always
+
+volumes:
+  db_data:
