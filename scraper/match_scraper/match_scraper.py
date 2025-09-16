@@ -1,6 +1,7 @@
 import pandas as pd
 from database import player_db, team_db, asset_db, game_db
 import unicodedata
+from utils.app_state import AppState
 
 '''
 Helper Functions
@@ -103,6 +104,7 @@ def createTeamGame(teamdf: pd.DataFrame) -> dict:
         'voidgrubs': int(safe_get_value(teamdf, 'void_grubs', default=0)),
         'barons': int(safe_get_value(teamdf, 'barons', default=0)),
         'firstbaron': bool(safe_get_value(teamdf, 'firstbaron', default=False)),
+        'atakhan': int(safe_get_value(teamdf,'atakhans',default=0)),
         # Towers
         'firsttower': bool(safe_get_value(teamdf, 'firsttower', default=False)),
         'firstmidtower': bool(safe_get_value(teamdf, 'firstmidtower', default=False)),
@@ -281,54 +283,74 @@ def createPlayer(playerrow: pd.DataFrame):
     })
     return message
 
+def createTeamPlayer(playerrow: pd.DataFrame):
+    message = player_db.createTeamPlayer({
+            'team_id': playerrow['teamid'][8:],
+            'player_id': playerrow['playerid'][10:],
+            'role': playerrow['position']
+            })
+    return message
+
 
 '''
 Main Parser Controller
 '''
 
+# Hardcoded Major Leagues for now. (TODO:get the minor regions too)
+major_leagues = ['LCK', 'LEC', 'LTA N', 'LTA S', 'LCP'] #Skipping LPL for now
 def parseCSV(file_path: str):
     df = pd.read_csv(file_path)
     groupedGames = df.groupby('gameid')
     for game_id, game_data in groupedGames:
-        # Attempt to create players and teams
-        
-        # Get rows where there is no playerid or playername (team rows)
-        team_rows = game_data[game_data['playerid'].isnull() & game_data['playername'].isnull()]
-        for _, team_data in team_rows.iterrows():
-            if pd.isna(team_data['teamid']):
-                continue
-            # Create team if it doesn't exist
-            createTeam(team_data)
-        
-        # Get rows where there is playerid and playername (player rows)
-        player_rows = game_data[game_data['playerid'].notnull() & game_data['playername'].notnull()]
-        for _, player_data in player_rows.iterrows():
-            if pd.isna(team_data['teamid']):
-                continue
-            # Create player if it doesn't exist
-            createPlayer(player_data)
-        
-        # Check if any team is 'unknown team' or if teamid is missing
-        if any(team_data['teamname'] == 'unknown team' or pd.isna(team_data['teamid']) for _, team_data in team_rows.iterrows()):
-            continue
-
-        # Begin by creating game:
-        gameDict = createGame(game_data)
-        game_db.createGame(gameDict)
-        
-        for _, team_data in team_rows.iterrows():
-            team_game = createTeamGame(team_data)
-            if team_game.get('Error'):
-                continue
-            else:
-                team_db.insertTeamGame(team_game)
-                team_draft = createTeamDraft(team_data)
-                team_db.insertTeamDraft(team_draft)
+        #Only filter for major regions for now.
+        if game_data['league'].isin(major_leagues).any():
+            # Attempt to create players and teams
+            # Get rows where there is no playerid or playername (team rows)
+            team_rows = game_data[game_data['playerid'].isnull() & game_data['playername'].isnull()]
             
-        for _, player_data in player_rows.iterrows():
-            game_player = createGamePlayer(player_data)
-            player_db.insertGamePlayer(game_player)
-    
+            #Create teams if they do not exist
+            for _, team_data in team_rows.iterrows():
+                #Skip if no team id
+                if pd.isna(team_data['teamid']):
+                    AppState.logger.warning('Team does not have ID, skipping team creation: {}'.format(team_data))
+                    continue
+                # Create team if it doesn't exist
+                createTeam(team_data)
+            
+            # Get rows where there is playerid and playername (player rows)
+            player_rows = game_data[game_data['playerid'].notnull() & game_data['playername'].notnull()]
+            
+            for _, player_data in player_rows.iterrows():
+                #skip if no team id
+                if pd.isna(player_data['teamid']):
+                    AppState.logger.warning('Player does not have a team. Skipping player creation: {}'.format(player_data))
+                    continue
+                # Create player if it doesn't exist
+                createPlayer(player_data)
+                createTeamPlayer(player_data)
+            
+            # Check if any team is 'unknown team' or if teamid is missing
+            if any(team_data['teamname'] == 'unknown team' or pd.isna(team_data['teamid']) for _, team_data in team_rows.iterrows()):
+                continue
+
+            # Begin by creating game:
+            gameDict = createGame(game_data)
+            game_db.createGame(gameDict)
+            
+            for _, team_data in team_rows.iterrows():
+                team_game = createTeamGame(team_data)
+                if team_game.get('Error'):
+                    AppState.logger.warning('Team data does not exist. Skipping team game creation: {}'.format(team_game))
+                    continue
+                else:
+                    team_db.insertTeamGame(team_game)
+                    team_draft = createTeamDraft(team_data)
+                    team_db.insertTeamDraft(team_draft)
+                    
+            for _, player_data in player_rows.iterrows():
+                game_player = createGamePlayer(player_data)
+                player_db.insertGamePlayer(game_player)
+
 if __name__ == "__main__":
     file_path = 'scraper/match_scraper/match_data.csv'
     parseCSV(file_path)

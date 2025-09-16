@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy import func
+import sqlalchemy
 import database.models as api
 from database.db_utils import getSession
 from thefuzz import fuzz
@@ -9,6 +10,18 @@ def getAllTeamNames() -> List[dict]:
     with getSession() as session:
         teams = session.query(api.Team.team_name,api.Team.team_id).all()
         return teams
+    
+def getAllTeams() -> List[dict]:
+    with getSession() as session:
+        teams = session.query(api.Team).all()
+        teamList = []
+        for team in teams:
+            teamList.append({
+                'team_id': team.team_id,
+                'team_name':team.team_name,
+                'league':team.league
+            })
+        return teamList
 
 def createTeam(teamInfo: dict) -> dict:
     with getSession() as session:
@@ -68,6 +81,148 @@ def getTeamsByLeague(league_name: str) -> List:
         else:
             return {"Error": "League not found. League:{}".format(league_name)}
 
+# stats time
+
+def getBasicTeamStats(teamId: Optional[str] = None) -> dict:
+    with getSession() as session:
+        if teamId:
+            query = session.query(
+                func.count(api.Team_Game.game_id).label('games_played'),
+                func.sum(func.cast(api.Team_Game.result, sqlalchemy.Integer)).label("wins"),
+                func.avg(api.Team_Game.game_length).label('avg_game_length')
+            ).filter(api.Team_Game.team_id == teamId)
+            basic_stats = query.one()
+            if basic_stats:
+                win_rate = (basic_stats.wins / basic_stats.games_played * 100) if basic_stats.games_played else 0
+                return {
+                    'games_played': basic_stats.games_played or 0,
+                    'wins': basic_stats.wins or 0,
+                    'losses': basic_stats.games_played - basic_stats.wins or 0,
+                    'win_rate': round(win_rate, 2),
+                    'avg_game_length': round(basic_stats.avg_game_length or 0, 2),
+                }
+            else:
+                return {"Error": "No basic stats found for team ID:{}".format(teamId)}
+        else:
+            # Group by team_id for all teams
+            query = session.query(
+                api.Team_Game.team_id,
+                func.count(api.Team_Game.game_id).label('games_played'),
+                func.sum(func.cast(api.Team_Game.result, sqlalchemy.Integer)).label("wins"),
+                func.avg(api.Team_Game.game_length).label('avg_game_length')
+            ).group_by(api.Team_Game.team_id)
+            basic_stats = query.all()
+            statslist = []
+            for stat in basic_stats:
+                win_rate = (stat.wins / stat.games_played * 100) if stat.games_played else 0
+                statslist.append({
+                    'team_id': stat.team_id,
+                    'games_played': stat.games_played or 0,
+                    'wins': stat.wins or 0,
+                    'losses': stat.games_played - stat.wins or 0,
+                    'win_rate': round(win_rate, 2),
+                    'avg_game_length': round(stat.avg_game_length or 0, 2),
+                })
+            return statslist
+
+def getTeamEconomyStats(teamId:str) -> dict:
+    with getSession() as session:
+        economy_stats = session.query(
+            func.avg(api.Team_Game_Economy.totalgold).label('avg_total_gold'),
+            func.sum(api.Team_Game.game_length).label('total_game_time'),
+            func.avg(api.Team_Game_Economy.minionkills).label('avg_minion_kills'),
+            func.sum(api.Team_Game_Economy.minionkills).label('total_minion_kills'),
+            func.sum(api.Team_Game_Economy.totalgold).label('total_gold')
+        ).join(
+            api.Team_Game, api.Team_Game.team_game_id == api.Team_Game_Economy.team_game_id
+        ).filter(
+            api.Team_Game.team_id == teamId
+        ).one()
+        
+        
+        if economy_stats:
+            return {
+                'avg_total_gold': float(economy_stats.avg_total_gold or 0),
+                'avg_minion_kills': economy_stats.avg_minion_kills or 0,
+                'total_game_time': economy_stats.total_game_time or 0,
+                'avg_gpm': round((economy_stats.total_gold or 0) / ((economy_stats.total_game_time or 1)/60),2),
+                'avg_cspm': round((economy_stats.total_minion_kills or 0) / ((economy_stats.total_game_time or 1)/60),2)    
+            }
+        else:
+            return {"Error": "No economy stats found for team ID:{}".format(teamId)}
+        
+def getTeamCombatStats(teamId:str) -> dict:
+    with getSession() as session:
+        combat_stats = session.query(
+            func.avg(api.Team_Game_Combat.kills).label('avg_kills'),
+            func.avg(api.Team_Game_Combat.deaths).label('avg_deaths'),
+            func.avg(api.Team_Game_Combat.assists).label('avg_assists'),
+            func.avg(api.Team_Game_Combat.firstblood).label('firstblood_rate')
+        ).join(
+            api.Team_Game, api.Team_Game.team_game_id == api.Team_Game_Combat.team_game_id
+        ).filter(
+            api.Team_Game.team_id == teamId
+        ).one()
+        
+        if combat_stats:
+            return {
+                'avg_kills': round(combat_stats.avg_kills or 0,2),
+                'avg_deaths': round(combat_stats.avg_deaths or 0,2),
+                'avg_assists': round(combat_stats.avg_assists or 0,2),
+                'firstblood_rate': round((combat_stats.firstblood_rate or 0) * 100,2)
+            }  
+        else:
+            return {"Error": "No combat stats found for team ID:{}".format(teamId)}
+        
+def getTeamObjectiveStats(teamId:str) -> dict:
+    with getSession() as session:
+        obj_stats = session.query(
+            func.count(api.Team_Game.game_id).label('games_played'),
+            func.sum(api.Team_Game_Objectives.dragons).label('dragons'),
+            func.sum(api.Team_Game_Objectives.voidgrubs).label('voidgrubs'),
+            func.sum(api.Team_Game_Objectives.atakhan).label('atakhan'),
+            func.sum(api.Team_Game_Objectives.heralds).label('heralds'),
+            func.sum(api.Team_Game_Objectives.barons).label('barons'),
+        ).join(
+            api.Team_Game, api.Team_Game.team_game_id == api.Team_Game_Objectives.team_game_id
+        ).filter(
+            api.Team_Game.team_id == teamId
+        ).one()
+        
+        if obj_stats:
+            return {
+                'dragons_per_game': round((obj_stats.dragons or 0) / (obj_stats.games_played or 1),2),
+                'voidgrubs_per_game': round((obj_stats.voidgrubs or 0) / (obj_stats.games_played or 1),2),
+                'atakhan_per_game': round((obj_stats.atakhan or 0) / (obj_stats.games_played or 1),2),
+                'heralds_per_game': round((obj_stats.heralds or 0) / (obj_stats.games_played or 1),2),
+                'barons_per_game': round((obj_stats.barons or 0) / (obj_stats.games_played or 1),2),
+            }  
+        else:
+            return {"Error": "No objective stats found for team ID:{}".format(teamId)}
+        
+def getTeamVisionStats(teamId:str) -> dict:
+    with getSession() as session:
+        vision_stats = session.query(
+            func.sum(api.Team_Game.game_length).label('total_game_time'),
+            func.sum(api.Team_Game_Vision.wardsplaced).label('wards_placed'),
+            func.sum(api.Team_Game_Vision.wardskilled).label('wards_killed'), 
+            func.sum(api.Team_Game_Vision.visionscore).label('vision_score'),
+            func.sum(api.Team_Game_Vision.controlwardsbought).label('control_wards_bought'),
+        ).join(
+            api.Team_Game, api.Team_Game.team_game_id == api.Team_Game_Vision.team_game_id
+        ).filter(
+            api.Team_Game.team_id == teamId
+        ).one()
+        
+        if vision_stats:
+            return {
+                'vspm': round((vision_stats.vision_score or 0) / ((vision_stats.total_game_time or 1)/60),2),
+                'wpm': round((vision_stats.wards_placed or 0) / ((vision_stats.total_game_time or 1)/60),2),
+                'control_wpm': round((vision_stats.control_wards_bought or 0) / ((vision_stats.total_game_time or 1)/60),2),
+                'wkpm': round((vision_stats.wards_killed or 0) / ((vision_stats.total_game_time or 1)/60),2),
+            }  
+        else:
+            return {"Error": "No objective stats found for team ID:{}".format(teamId)}
 
 '''
 Team Getter with Fuzzy Matching
@@ -78,9 +233,8 @@ def getTeamBySimilarName(team_name: str) -> dict:
     best_score = 0
     teams = getAllTeamNames()
     for team in teams:
-        score = fuzz.ratio(team_name, team.team_name)
+        score = fuzz.ratio(team_name.lower(), team.team_name.lower())
         if score > best_score:
-            print('New Best Match: ', team.team_name, score)
             best_score = score
             best_match = team
     if best_match:
@@ -95,7 +249,7 @@ def getTeamBySimilarName(team_name: str) -> dict:
 
 Team Game Getter Functions
 
-'''
+'''    
 
 def getTeamGames(teamId: str):
     with getSession() as session:
@@ -268,4 +422,3 @@ def insertTeamDraft(teamDraft: dict) -> dict:
             session.rollback()
             print(e)
             return {"Error": "Error adding Team Draft. ID:{}".format(team_game_id)}
-        

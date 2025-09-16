@@ -16,7 +16,9 @@ def getSession():
 def buildTables():
     models.Base.metadata.create_all(models.engine)
     print("Tables Successfully Built")
+    return True
     
 def dropTables():
     models.Base.metadata.drop_all(models.engine)
     print("Tables Successfully Dropped")
+    return True

@@ -7,6 +7,11 @@ import requests
 
 
 def downloadFromGoogleDrive():
+    """Downloads the Oracle Elixir CSV from Google Drive and saves it locally.
+
+    Returns:
+        str: The file path of the downloaded CSV file.
+    """
     file_id = '1v6LRphp2kYciU4SXp0PCjEMuev1bDejc'
     url = f'https://drive.google.com/uc?export=download&id={file_id}'
     response = requests.get(url)

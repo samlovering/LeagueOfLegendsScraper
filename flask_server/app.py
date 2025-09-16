@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, render_template, request, make_response
 
 from database import game_db, team_db
-from stat_calc import betting_stats
+from stat_calc import betting_stats, team_stats
 
 app = Flask(__name__)
 
@@ -13,12 +13,29 @@ def get_leagues():
 def get_patches():
     return jsonify(game_db.getPatches())
 
+@app.route('/api/getTeamStats', methods=['GET'])
+def getTeamStats():
+    teamid = request.args.get('id')
+    overview = team_stats.getTeamOverview(teamid)
+    return jsonify(overview)
+
+@app.route('/api/getTeamBettingStats', methods=['GET'])
+def getTeamBettingStats():
+    teamid = request.args.get('id')
+    betting_overview = betting_stats.create_team_betting_stats(teamid)
+    return jsonify(betting_overview)
+
+@app.route('/api/getTeamList', methods=['GET'])
+def getTeamList():
+    teams = team_stats.getTeamList()
+    teams = {"teams": teams}
+    return jsonify(teams)
+
 @app.route('/api/getBettingStatsForLeague', methods=['GET','POST'])
 def getBettingStatsForLeague():
     data = request.json
     league = data.get('league')
     teams = team_db.getTeamsByLeague(league)
-    print(teams)
     team_stats_list = [betting_stats.create_team_betting_stats(team['team_id']) for team in teams]
     return jsonify(team_stats_list)
 

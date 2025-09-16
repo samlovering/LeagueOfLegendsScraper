@@ -49,6 +49,7 @@ class Team_Player(Base):
     team_player_id = sqlalchemy.Column(sqlalchemy.String(255), primary_key=True)
     team_id = sqlalchemy.Column(sqlalchemy.String(255), sqlalchemy.ForeignKey("Team.team_id"))
     player_id = sqlalchemy.Column(sqlalchemy.String(255), sqlalchemy.ForeignKey("Player.player_id"))
+    role = sqlalchemy.Column(sqlalchemy.String(255))
     
     team = sqlalchemy.orm.relationship("Team", backref="team_players", lazy=True)
     player = sqlalchemy.orm.relationship("Player", backref="team_players", lazy=True)
@@ -189,6 +190,7 @@ class Team_Game_Objectives(Base):
     firstherald = sqlalchemy.Column(sqlalchemy.Boolean)
     voidgrubs = sqlalchemy.Column(sqlalchemy.Integer)
     barons = sqlalchemy.Column(sqlalchemy.Integer)
+    atakhan = sqlalchemy.Column(sqlalchemy.Integer)
     firstbaron = sqlalchemy.Column(sqlalchemy.Boolean)
     firsttower = sqlalchemy.Column(sqlalchemy.Boolean)
     firstmidtower = sqlalchemy.Column(sqlalchemy.Boolean)

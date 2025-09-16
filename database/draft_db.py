@@ -89,32 +89,33 @@ def getBans(league: Optional[str] = None, teamId: Optional[str]=None, side: Opti
         
         results = (
             session.query(
-                api.Champion.champion_name,
-                func.count(ban_columns.c.ban).label('ban_count')
+            api.Champion.champion_name,
+            api.Champion.champion_id,
+            func.count(ban_columns.c.ban).label('ban_count')
             )
             .join(api.Champion, ban_columns.c.ban == api.Champion.champion_id)
-            .group_by(api.Champion.champion_name)
+            .group_by(api.Champion.champion_name, api.Champion.champion_id)
             .order_by(func.count(ban_columns.c.ban).desc())
             .all()
         )
-        
-        return [{"champion_name": champion_name, "count": ban_count} for champion_name, ban_count in results]
+
+        return [{"champion_name": champion_name, "champion_id": champion_id, "count": ban_count} for champion_name, champion_id, ban_count in results]
                         
 
 def getPicks(league: Optional[str] = None, teamId: Optional[str]=None, side: Optional[str]=None) -> List[dict]:
     with getSession() as session:
-        #Create a query and filter by league if possible.
+        # Always join Team to ensure api.Team is available for with_entities
         draft_query = session.query(api.Team_Draft).join(api.Team, api.Team_Draft.team_id == api.Team.team_id)
-        #If there is a league specifier, add a filter
+        # If there is a league specifier, add a filter
         if league:
             draft_query = draft_query.filter(api.Team.league == league)
         if teamId:
-            draft_query = draft_query.filter(api.Team_Draft.team_id==teamId)
+            draft_query = draft_query.filter(api.Team_Draft.team_id == teamId)
         if side:
-            draft_query = draft_query.join(api.Team_Game, api.Team_Draft.team_game_id==api.Team_Game.team_game_id)
+            draft_query = draft_query.join(api.Team_Game, api.Team_Draft.team_game_id == api.Team_Game.team_game_id)
             draft_query = draft_query.filter(api.Team_Game.side == side)
-            
-        #Combines all Picks under "all_picks"
+
+        # Combines all Picks under "all_picks"
         pick_columns = union_all(
             draft_query.with_entities(api.Team_Draft.pick1.label('pick_id'), api.Team.team_id),
             draft_query.with_entities(api.Team_Draft.pick2.label('pick_id'), api.Team.team_id),
@@ -123,19 +124,19 @@ def getPicks(league: Optional[str] = None, teamId: Optional[str]=None, side: Opt
             draft_query.with_entities(api.Team_Draft.pick5.label('pick_id'), api.Team.team_id),
         ).alias('all_picks')
 
-            
         results = (
             session.query(
                 api.Champion.champion_name,
+                api.Champion.champion_id,
                 func.count(pick_columns.c.pick_id).label('pick_count')
             )
-            .join(api.Champion,pick_columns.c.pick_id==api.Champion.champion_id)
+            .join(api.Champion, pick_columns.c.pick_id == api.Champion.champion_id)
             .group_by(api.Champion.champion_name)
             .order_by(func.count(pick_columns.c.pick_id).desc())
             .all()
         )
-        
-        return [{"champion_name": champion_name, "count": pick_count} for champion_name, pick_count in results]
+
+        return [{"champion_name": champion_name, "champion_id": champion_id, "count": pick_count} for champion_name, champion_id, pick_count in results]
 
 
 '''
@@ -183,16 +184,17 @@ def getOpponentBans(teamId: str, side: Optional[str]=None) -> List[dict]:
         #Query for Results
         results = (
             session.query(
-                api.Champion.champion_name,
-                func.count(ban_columns.c.ban).label('ban_count')
+            api.Champion.champion_name,
+            api.Champion.champion_id,
+            func.count(ban_columns.c.ban).label('ban_count')
             )
             .join(api.Champion, ban_columns.c.ban == api.Champion.champion_id)
-            .group_by(api.Champion.champion_name)
+            .group_by(api.Champion.champion_name, api.Champion.champion_id)
             .order_by(func.count(ban_columns.c.ban).desc())
             .all()
         )
         
-        return [{"champion_name": champion_name, "count": ban_count} for champion_name, ban_count in results]
+        return [{"champion_name": champion_name, "champion_id": champion_id, "count": ban_count} for champion_name, champion_id, ban_count in results]
     
 '''
 Get Opposing Team Picks
@@ -229,26 +231,27 @@ def getOpponentPicks(teamId: str, side: Optional[str]=None) -> List[dict]:
             
         #Combines all Picks under "all_picks"
         pick_columns = union_all(
-            draft_query.with_entities(api.Team_Draft.pick1.label('pick_id'), api.Team.team_id),
-            draft_query.with_entities(api.Team_Draft.pick2.label('pick_id'), api.Team.team_id),
-            draft_query.with_entities(api.Team_Draft.pick3.label('pick_id'), api.Team.team_id),
-            draft_query.with_entities(api.Team_Draft.pick4.label('pick_id'), api.Team.team_id),
-            draft_query.with_entities(api.Team_Draft.pick5.label('pick_id'), api.Team.team_id),
+            draft_query.with_entities(api.Team_Draft.pick1.label('pick_id')),
+            draft_query.with_entities(api.Team_Draft.pick2.label('pick_id')),
+            draft_query.with_entities(api.Team_Draft.pick3.label('pick_id')),
+            draft_query.with_entities(api.Team_Draft.pick4.label('pick_id')),
+            draft_query.with_entities(api.Team_Draft.pick5.label('pick_id')),
         ).alias('all_picks')
 
             
         results = (
             session.query(
-                api.Champion.champion_name,
-                func.count(pick_columns.c.pick_id).label('pick_count')
+            api.Champion.champion_name,
+            api.Champion.champion_id,
+            func.count(pick_columns.c.pick_id).label('pick_count')
             )
-            .join(api.Champion,pick_columns.c.pick_id==api.Champion.champion_id)
-            .group_by(api.Champion.champion_name)
+            .join(api.Champion, pick_columns.c.pick_id == api.Champion.champion_id)
+            .group_by(api.Champion.champion_name, api.Champion.champion_id)
             .order_by(func.count(pick_columns.c.pick_id).desc())
             .all()
         )
-        
-        return [{"champion_name": champion_name, "count": pick_count} for champion_name, pick_count in results]
+
+        return [{"champion_name": champion_name, "champion_id": champion_id, "count": pick_count} for champion_name, champion_id, pick_count in results]
     
 '''
 Draft Scoring
