@@ -1,0 +1,5 @@
+1. Fix DB error with "already exists"
+2.fix UI
+3. add team pictures
+4. add games
+5. add players

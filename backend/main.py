@@ -13,6 +13,7 @@ from utils.app_state import AppState
 def run():
    """This starts the scraper in a new thread, attaches a logger, and starts the server.
    """
+   db_utils.dropTables()
    complete = db_utils.buildTables()
    while complete == False:
       pass

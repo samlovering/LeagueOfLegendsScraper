@@ -297,12 +297,12 @@ Main Parser Controller
 '''
 
 # Hardcoded Major Leagues for now. (TODO:get the minor regions too)
-major_leagues = ['LCK', 'LEC', 'LTA N', 'LTA S', 'LCP'] #Skipping LPL for now
+major_leagues = ['LCK', 'LEC', 'LTA N', 'LTA S', 'LCP', 'LPL'] 
 def parseCSV(file_path: str):
     df = pd.read_csv(file_path)
     groupedGames = df.groupby('gameid')
     for game_id, game_data in groupedGames:
-        #Only filter for major regions for now.
+        #Only filter for major regions.
         if game_data['league'].isin(major_leagues).any():
             # Attempt to create players and teams
             # Get rows where there is no playerid or playername (team rows)
@@ -350,7 +350,3 @@ def parseCSV(file_path: str):
             for _, player_data in player_rows.iterrows():
                 game_player = createGamePlayer(player_data)
                 player_db.insertGamePlayer(game_player)
-
-if __name__ == "__main__":
-    file_path = 'scraper/match_scraper/match_data.csv'
-    parseCSV(file_path)

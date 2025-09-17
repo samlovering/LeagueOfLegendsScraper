@@ -1,6 +1,6 @@
 # League Stats Project
 
-This project is my sandbox for technology, built off of a stat scraper i've wrestled with over the last hald year.
+This project is my sandbox for technology, built off of a stat scraper i've wrestled with over the last half year.
 
 ## File Structure (Key Folders)
 
@@ -42,15 +42,13 @@ database/
 ---
 
 ## How to run
+```
+git clone https://github.com/samlovering/LeagueOfLegendsScraper.git
+cd /LeagueOfLegendsScraper/
+docker-compose up --build
 
+```
 
+Then open up a browser to `localhost:80` to view your teams.
 
----
-
-## Todo List
-[] Create Pages for games, players stored in database
-[] Create a page for poisson kill modeling
-[] Throw draft stats into an AI
-
----
 

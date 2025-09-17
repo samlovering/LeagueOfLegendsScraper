@@ -138,7 +138,6 @@ def insertGamePlayer(gamePlayer: dict) -> dict:
         #check for existing gamePlayer
         existingGamePlayer  = session.query(api.Game_Player).filter(api.Game_Player.game_player_id==game_player_id).first()
         if existingGamePlayer:
-            AppState.logger.info("Game Player {} already exists in database".format(game_player_id))
             return {"Error":"Game Player {} already exists in database".format(game_player_id)}
         
         game_player = api.Game_Player(game_player_id=game_player_id, **gamePlayer['game_player'])
@@ -153,6 +152,7 @@ def insertGamePlayer(gamePlayer: dict) -> dict:
             session.add(game_player_vision)
             session.add(game_player_at15)
             session.commit()
+            AppState.logger.info("Game Player {} added successfully".format(game_player_id))
             return {'Success': 'Game Player {} added successfully'.format(game_player_id)}
         except Exception as e:
             session.rollback()
